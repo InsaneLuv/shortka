@@ -1,10 +1,14 @@
-from typing import Optional
 import secrets
 import sqlite3
 import string
 from dataclasses import dataclass
+from typing import Optional
+
+import structlog
 
 from app.services.database import Database
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass
@@ -27,6 +31,9 @@ class UrlService:
     async def create_short_url(self, original_url: str, length: int = 6) -> UrlData:
         # Проверяем существующую запись
         existing_short_id = await self.get_short_id_by_url(original_url)
+        logger.info(
+            "Сокращенная ссылка уже существует", code=existing_short_id, url=original_url
+        )
         if existing_short_id:
             return UrlData(short_id=existing_short_id, original_url=original_url)
 
@@ -40,6 +47,9 @@ class UrlService:
                 await self.db.execute(
                     "INSERT INTO urls (short_id, original_url) VALUES (?, ?)",
                     (short_id, original_url)
+                )
+                logger.info(
+                    "Новая сокращенная ссылка создана", code=short_id, url=original_url
                 )
                 return UrlData(short_id=short_id, original_url=original_url)
             except sqlite3.IntegrityError:
